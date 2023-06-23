@@ -1,0 +1,6 @@
+class AlreadyInitialized(Exception):
+    ...
+
+
+class InvalidImage(Exception):
+    ...

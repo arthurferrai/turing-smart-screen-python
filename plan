@@ -1,0 +1,14 @@
+provider:
+    store data
+    update data
+    trigger callback when data updates
+
+
+display:
+    initialize
+    draw (x, y, image_data)
+    finalize
+    restart
+
+theme:
+    gather data
