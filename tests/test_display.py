@@ -76,38 +76,78 @@ def images_are_equal(img1: Image.Image, img2: Image.Image):
 
 
 class TestImageDisplay(unittest.TestCase):
-    def test_when_image_is_drawn_out_of_limits_then_nothing_is_drawn(self):
-        d = ImageDisplay(10, 10)
-        image = Image.new('RGB', (10, 10), 'rgb(255,0,0)')
-        d.initialize()
-        current = d.get_image()
-        d.draw(20, 20, image)
+    def setUp(self) -> None:
+        self.d = ImageDisplay(10, 10)
 
-        assert images_are_equal(current, d.get_image())
+    def test_when_image_is_drawn_out_of_limits_then_nothing_is_drawn(self):
+        image = Image.new('RGB', (10, 10), 'rgb(255,0,0)')
+        self.d.initialize()
+        current = self.d.get_image()
+        self.d.draw(20, 20, image)
+
+        assert images_are_equal(current, self.d.get_image())
 
     def test_when_image_is_drawn_inside_limits_then_image_is_drawn(self):
-        d = ImageDisplay(10, 10)
         image = Image.new('RGB', (10, 10), 'rgb(255,0,0)')
-        d.initialize()
-        current = d.get_image()
+        self.d.initialize()
+        current = self.d.get_image()
 
         result_image = current.copy()
         result_image.paste(image, (0, 0))
 
-        d.draw(0, 0, image)
+        self.d.draw(0, 0, image)
 
-        assert images_are_equal(result_image, d.get_image())
+        assert images_are_equal(result_image, self.d.get_image())
 
     def test_when_display_is_restarted_then_image_must_reset(self):
         image = Image.new('RGB', (10, 10), 'rgb(255,0,0)')
 
-        d = ImageDisplay(10, 10)
-        d.initialize()
-        initial_image = d.get_image()
-        d.draw(0, 0, image)
-        d.restart()
+        self.d.initialize()
+        initial_image = self.d.get_image()
+        self.d.draw(0, 0, image)
+        self.d.restart()
 
-        assert images_are_equal(initial_image, d.get_image())
+        assert images_are_equal(initial_image, self.d.get_image())
+
+
+class Rotation:
+    Clockwise = -90
+    CounterClockwise = 90
+    UpsideDown = 180
+
+
+class TestImageDisplayRotated(unittest.TestCase):
+    def setUp(self) -> None:
+        self.lamp_post = Image.new('RGB', (10, 20), 'rgb(255,0,0)')
+        self.lamp_post.paste(Image.new('RGB', (10, 10), 'rgb(0,255,0)'), (0, 0))
+
+    def test_when_display_is_not_rotated_then_result_image_must_not_be_rotated(self):
+        expected_image = Image.new('RGB', (20, 20))
+        expected_image.paste(self.lamp_post, (0, 0))
+
+        d = ImageDisplay(20, 20)
+        d.draw(0, 0, self.lamp_post)
+
+        assert images_are_equal(expected_image, d.get_image())
+
+    def test_when_display_is_rotated_then_result_image_must_be_rotated(self):
+        expected_image = Image.new('RGB', (20, 20))
+        expected_image.paste(self.lamp_post, (0, 0))
+
+        d = ImageDisplay(20, 20, Rotation.Clockwise)
+        d.draw(0, 0, self.lamp_post)
+
+        assert images_are_equal(expected_image.rotate(-90), d.get_image())
+
+        d = ImageDisplay(20, 20, Rotation.CounterClockwise)
+        d.draw(0, 0, self.lamp_post)
+
+        assert images_are_equal(expected_image.rotate(90), d.get_image())
+
+        d = ImageDisplay(20, 20, Rotation.UpsideDown)
+        d.draw(0, 0, self.lamp_post)
+
+        assert images_are_equal(expected_image.rotate(180), d.get_image())
 
 
 class DummySerialDevice:
@@ -116,11 +156,17 @@ class DummySerialDevice:
 
 class SerialDisplay(DisplayBase):
     def __init__(self, s):
+        super().__init__()
         self.s = s
         ...
 
     def initialize(self):
+        super().initialize()
         self.s.open()
+
+    def finalize(self):
+        super().finalize()
+        self.s.close()
 
     def draw(self, x, y, image):
         super().draw(x, y, image)
@@ -132,6 +178,9 @@ class SpySerialDevice:
 
     def open(self):
         self.called_funcs.append("open")
+
+    def close(self):
+        self.called_funcs.append("close")
 
 
 class TestSerialDisplay(unittest.TestCase):
@@ -145,6 +194,15 @@ class TestSerialDisplay(unittest.TestCase):
         d.initialize()
 
         assert "open" in s.called_funcs
+
+    def test_when_serial_display_is_finalized_the_serial_connection_must_be_closed(self):
+        s = SpySerialDevice()
+        d = SerialDisplay(s)
+        d.initialize()
+        d.finalize()
+
+        print(s.called_funcs)
+        assert tuple(s.called_funcs) == ('open', 'close')
 
 
 if __name__ == '__main__':
